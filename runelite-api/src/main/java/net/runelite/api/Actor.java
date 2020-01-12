@@ -26,7 +26,9 @@ package net.runelite.api;
 
 import java.awt.Graphics2D;
 import java.awt.Polygon;
+import java.awt.Shape;
 import java.awt.image.BufferedImage;
+import javax.annotation.Nullable;
 import net.runelite.api.annotations.VisibleForDevtools;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldArea;
@@ -49,6 +51,7 @@ public interface Actor extends Renderable
 	 *
 	 * @return the name
 	 */
+	@Nullable
 	String getName();
 
 	/**
@@ -153,13 +156,6 @@ public interface Actor extends Renderable
 	void setSpotAnimFrame(int spotAnimFrame);
 
 	/**
-	 * Gets the height of the actors model.
-	 *
-	 * @return the height
-	 */
-	int getModelHeight();
-
-	/**
 	 * Gets the canvas area of the current tile the actor is standing on.
 	 *
 	 * @return the current tile canvas area
@@ -175,6 +171,7 @@ public interface Actor extends Renderable
 	 * @param zOffset the z-axis offset
 	 * @return the text drawing location
 	 */
+	@Nullable
 	Point getCanvasTextLocation(Graphics2D graphics, String text, int zOffset);
 
 	/**
@@ -222,7 +219,7 @@ public interface Actor extends Renderable
 	 * @return the convex hull
 	 * @see net.runelite.api.model.Jarvis
 	 */
-	Polygon getConvexHull();
+	Shape getConvexHull();
 
 	/**
 	 * Gets the world area that the actor occupies.
@@ -236,5 +233,12 @@ public interface Actor extends Renderable
 	 *
 	 * @return the overhead text
 	 */
-	String getOverhead();
+	String getOverheadText();
+
+	/**
+	 * Sets the overhead text that is displayed above the actor
+	 *
+	 * @param overheadText the overhead text
+	 */
+	void setOverheadText(String overheadText);
 }

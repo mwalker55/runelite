@@ -30,8 +30,12 @@ import java.awt.Graphics2D;
 import javax.inject.Inject;
 import lombok.Setter;
 import net.runelite.api.Client;
+import static net.runelite.api.MenuAction.RUNELITE_OVERLAY;
+import static net.runelite.api.MenuAction.RUNELITE_OVERLAY_CONFIG;
 import net.runelite.client.plugins.raids.solver.Room;
 import net.runelite.client.ui.overlay.Overlay;
+import static net.runelite.client.ui.overlay.OverlayManager.OPTION_CONFIGURE;
+import net.runelite.client.ui.overlay.OverlayMenuEntry;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.OverlayPriority;
 import net.runelite.client.ui.overlay.components.LineComponent;
@@ -41,6 +45,7 @@ import net.runelite.client.ui.overlay.components.TitleComponent;
 public class RaidsOverlay extends Overlay
 {
 	private static final int OLM_PLANE = 0;
+	static final String BROADCAST_ACTION = "Broadcast layout";
 
 	private Client client;
 	private RaidsPlugin plugin;
@@ -53,11 +58,14 @@ public class RaidsOverlay extends Overlay
 	@Inject
 	private RaidsOverlay(Client client, RaidsPlugin plugin, RaidsConfig config)
 	{
+		super(plugin);
 		setPosition(OverlayPosition.TOP_LEFT);
 		setPriority(OverlayPriority.LOW);
 		this.client = client;
 		this.plugin = plugin;
 		this.config = config;
+		getMenuEntries().add(new OverlayMenuEntry(RUNELITE_OVERLAY_CONFIG, OPTION_CONFIGURE, "Raids overlay"));
+		getMenuEntries().add(new OverlayMenuEntry(RUNELITE_OVERLAY, BROADCAST_ACTION, "Raids overlay"));
 	}
 
 	@Override
@@ -81,7 +89,7 @@ public class RaidsOverlay extends Overlay
 		}
 
 		Color color = Color.WHITE;
-		String layout = plugin.getRaid().getLayout().toCode().replaceAll("#", "").replaceAll("¤", "");
+		String layout = plugin.getRaid().getLayout().toCodeString();
 
 		if (config.enableLayoutWhitelist() && !plugin.getLayoutWhitelist().contains(layout.toLowerCase()))
 		{
@@ -92,14 +100,6 @@ public class RaidsOverlay extends Overlay
 			.text(layout)
 			.color(color)
 			.build());
-
-		int bossMatches = 0;
-		int bossCount = 0;
-
-		if (config.enableRotationWhitelist())
-		{
-			bossMatches = plugin.getRotationMatches();
-		}
 
 		for (Room layoutRoom : plugin.getRaid().getLayout().getRooms())
 		{
@@ -116,38 +116,41 @@ public class RaidsOverlay extends Overlay
 			switch (room.getType())
 			{
 				case COMBAT:
-					bossCount++;
-					if (plugin.getRoomWhitelist().contains(room.getBoss().getName().toLowerCase()))
+					if (plugin.getRoomWhitelist().contains(room.getName().toLowerCase()))
 					{
 						color = Color.GREEN;
 					}
-					else if (plugin.getRoomBlacklist().contains(room.getBoss().getName().toLowerCase())
-							|| config.enableRotationWhitelist() && bossCount > bossMatches)
+					else if (plugin.getRoomBlacklist().contains(room.getName().toLowerCase())
+							|| config.enableRotationWhitelist() && !plugin.getRotationMatches())
 					{
 						color = Color.RED;
 					}
 
+					String name = room == RaidRoom.UNKNOWN_COMBAT ? "Unknown" : room.getName();
+
 					panelComponent.getChildren().add(LineComponent.builder()
 						.left(room.getType().getName())
-						.right(room.getBoss().getName())
+						.right(name)
 						.rightColor(color)
 						.build());
 
 					break;
 
 				case PUZZLE:
-					if (plugin.getRoomWhitelist().contains(room.getPuzzle().getName().toLowerCase()))
+					if (plugin.getRoomWhitelist().contains(room.getName().toLowerCase()))
 					{
 						color = Color.GREEN;
 					}
-					else if (plugin.getRoomBlacklist().contains(room.getPuzzle().getName().toLowerCase()))
+					else if (plugin.getRoomBlacklist().contains(room.getName().toLowerCase()))
 					{
 						color = Color.RED;
 					}
 
+					name = room == RaidRoom.UNKNOWN_PUZZLE ? "Unknown" : room.getName();
+
 					panelComponent.getChildren().add(LineComponent.builder()
 						.left(room.getType().getName())
-						.right(room.getPuzzle().getName())
+						.right(name)
 						.rightColor(color)
 						.build());
 					break;

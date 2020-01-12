@@ -43,21 +43,32 @@ public interface IdleNotifierConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "combatidle",
-		name = "Combat Idle Notifications",
-		description = "Configures if out of combat notifications are enabled",
+		keyName = "interactionidle",
+		name = "Idle Interaction Notifications",
+		description = "Configures if idle interaction notifications are enabled e.g. combat, fishing",
 		position = 2
 	)
-	default boolean combatIdle()
+	default boolean interactionIdle()
 	{
 		return true;
+	}
+
+	@ConfigItem(
+		keyName = "movementidle",
+		name = "Idle Movement Notifications",
+		description = "Configures if idle movement notifications are enabled e.g. running, walking",
+		position = 3
+	)
+	default boolean movementIdle()
+	{
+		return false;
 	}
 
 	@ConfigItem(
 		keyName = "logoutidle",
 		name = "Idle Logout Notifications",
 		description = "Configures if the idle logout notifications are enabled",
-		position = 3
+		position = 4
 	)
 	default boolean logoutIdle()
 	{
@@ -68,7 +79,7 @@ public interface IdleNotifierConfig extends Config
 		keyName = "timeout",
 		name = "Idle Notification Delay (ms)",
 		description = "The notification delay after the player is idle",
-		position = 4
+		position = 5
 	)
 	default int getIdleNotificationDelay()
 	{
@@ -79,7 +90,7 @@ public interface IdleNotifierConfig extends Config
 		keyName = "hitpoints",
 		name = "Hitpoints Notification Threshold",
 		description = "The amount of hitpoints to send a notification at. A value of 0 will disable notification.",
-		position = 5
+		position = 6
 	)
 	default int getHitpointsThreshold()
 	{
@@ -90,7 +101,7 @@ public interface IdleNotifierConfig extends Config
 		keyName = "prayer",
 		name = "Prayer Notification Threshold",
 		description = "The amount of prayer points to send a notification at. A value of 0 will disable notification.",
-		position = 6
+		position = 7
 	)
 	default int getPrayerThreshold()
 	{
@@ -100,7 +111,7 @@ public interface IdleNotifierConfig extends Config
 	@ConfigItem(
 		keyName = "oxygen",
 		name = "Oxygen Notification Threshold",
-		position = 7,
+		position = 8,
 		description = "The amount of remaining oxygen to send a notification at. A value of 0 will disable notification."
 	)
 	default int getOxygenThreshold()
@@ -108,4 +119,14 @@ public interface IdleNotifierConfig extends Config
 		return 0;
 	}
 
+	@ConfigItem(
+		keyName = "spec",
+		name = "Special Attack Energy Notification Threshold",
+		position = 9,
+		description = "The amount of spec energy reached to send a notification at. A value of 0 will disable notification."
+	)
+	default int getSpecEnergyThreshold()
+	{
+		return 0;
+	}
 }

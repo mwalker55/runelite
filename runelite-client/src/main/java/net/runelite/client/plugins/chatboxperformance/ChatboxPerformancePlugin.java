@@ -24,15 +24,18 @@
  */
 package net.runelite.client.plugins.chatboxperformance;
 
-import com.google.common.eventbus.Subscribe;
 import javax.inject.Inject;
 import net.runelite.api.Client;
-import net.runelite.api.WidgetType;
-import net.runelite.api.events.WidgetPositioned;
+import net.runelite.api.GameState;
+import net.runelite.api.ScriptID;
+import net.runelite.api.events.ScriptCallbackEvent;
+import net.runelite.api.widgets.WidgetType;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.api.widgets.WidgetPositionMode;
 import net.runelite.api.widgets.WidgetSizeMode;
+import net.runelite.client.callback.ClientThread;
+import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 
@@ -45,29 +48,35 @@ public class ChatboxPerformancePlugin extends Plugin
 	@Inject
 	private Client client;
 
+	@Inject
+	private ClientThread clientThread;
+
+	@Override
+	public void startUp()
+	{
+		if (client.getGameState() == GameState.LOGGED_IN)
+		{
+			clientThread.invokeLater(() -> client.runScript(ScriptID.MESSAGE_LAYER_CLOSE, 0, 0));
+		}
+	}
+
+	@Override
+	public void shutDown()
+	{
+		if (client.getGameState() == GameState.LOGGED_IN)
+		{
+			clientThread.invokeLater(() -> client.runScript(ScriptID.MESSAGE_LAYER_CLOSE, 0, 0));
+		}
+	}
+
 	@Subscribe
-	public void onWidgetPositioned(WidgetPositioned event)
+	private void onScriptCallbackEvent(ScriptCallbackEvent ev)
 	{
-		if (!areWidgetsFixed())
+		if (!"chatboxBackgroundBuilt".equals(ev.getEventName()))
 		{
-			fixChatbox();
+			return;
 		}
-	}
 
-	private boolean areWidgetsFixed()
-	{
-		Widget widget = client.getWidget(WidgetInfo.CHATBOX_TRANSPARENT_BACKGROUND);
-		if (widget == null)
-		{
-			return true;
-		}
-		
-		Widget[] widgets = widget.getChildren();
-		return widgets.length > 0 && widgets[widgets.length - 1].getOpacity() < 254;
-	}
-
-	private void fixChatbox()
-	{
 		fixDarkBackground();
 		fixWhiteLines(true);
 		fixWhiteLines(false);

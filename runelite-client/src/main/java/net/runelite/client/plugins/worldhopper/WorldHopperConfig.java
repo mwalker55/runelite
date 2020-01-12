@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018, Lotto <https://github.com/devLotto>
+ * Copyright (c) 2019, gregg1494 <https://github.com/gregg1494>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -78,5 +79,60 @@ public interface WorldHopperConfig extends Config
 	default boolean showSidebar()
 	{
 		return true;
+	}
+
+	@ConfigItem(
+		keyName = "ping",
+		name = "Show world ping",
+		description = "Shows ping to each game world",
+		position = 4
+	)
+	default boolean ping()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "showMessage",
+		name = "Show world hop message in chat",
+		description = "Shows what world is being hopped to in the chat",
+		position = 5
+	)
+	default boolean showWorldHopMessage()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "menuOption",
+		name = "Show Hop-to menu option",
+		description = "Adds Hop-to menu option to the friends list and clan members list",
+		position = 6
+	)
+	default boolean menuOption()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "subscriptionFilter",
+		name = "Show subscription types",
+		description = "Only show free worlds, member worlds, or both types of worlds in sidebar",
+		position = 7
+	)
+	default SubscriptionFilterMode subscriptionFilter()
+	{
+		return SubscriptionFilterMode.BOTH;
+	}
+
+	@ConfigItem(
+		keyName = "displayPing",
+		name = "Display current ping",
+		description = "Displays ping to current game world",
+		position = 7
+	)
+	default boolean displayPing()
+	{
+		return false;
 	}
 }

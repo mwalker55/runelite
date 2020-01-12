@@ -25,7 +25,6 @@
  */
 package net.runelite.client.plugins.wintertodt;
 
-import com.google.common.eventbus.Subscribe;
 import com.google.inject.Provides;
 import java.time.Duration;
 import java.time.Instant;
@@ -42,6 +41,7 @@ import static net.runelite.api.AnimationID.WOODCUTTING_3A_AXE;
 import static net.runelite.api.AnimationID.WOODCUTTING_ADAMANT;
 import static net.runelite.api.AnimationID.WOODCUTTING_BLACK;
 import static net.runelite.api.AnimationID.WOODCUTTING_BRONZE;
+import static net.runelite.api.AnimationID.WOODCUTTING_CRYSTAL;
 import static net.runelite.api.AnimationID.WOODCUTTING_DRAGON;
 import static net.runelite.api.AnimationID.WOODCUTTING_INFERNAL;
 import static net.runelite.api.AnimationID.WOODCUTTING_IRON;
@@ -57,13 +57,16 @@ import static net.runelite.api.ItemID.BRUMA_KINDLING;
 import static net.runelite.api.ItemID.BRUMA_ROOT;
 import net.runelite.api.MessageNode;
 import net.runelite.api.Player;
+import net.runelite.api.Varbits;
 import net.runelite.api.events.AnimationChanged;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
-import net.runelite.api.events.SetMessage;
+import net.runelite.api.events.VarbitChanged;
 import net.runelite.client.Notifier;
 import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
@@ -71,8 +74,8 @@ import net.runelite.client.util.ColorUtil;
 
 @PluginDescriptor(
 	name = "Wintertodt",
-	description = "Wintertodt",
-	tags = {"minigame", "firemaking"}
+	description = "Show helpful information for the Wintertodt boss",
+	tags = {"minigame", "firemaking", "boss"}
 )
 @Slf4j
 public class WintertodtPlugin extends Plugin
@@ -116,6 +119,8 @@ public class WintertodtPlugin extends Plugin
 	private boolean isInWintertodt;
 
 	private Instant lastActionTime;
+
+	private int previousTimerValue;
 
 	@Provides
 	WintertodtConfig getConfig(ConfigManager configManager)
@@ -182,6 +187,30 @@ public class WintertodtPlugin extends Plugin
 		checkActionTimeout();
 	}
 
+	@Subscribe
+	public void onVarbitChanged(VarbitChanged varbitChanged)
+	{
+		int timerValue = client.getVar(Varbits.WINTERTODT_TIMER);
+		if (timerValue != previousTimerValue)
+		{
+			int timeToNotify = config.roundNotification();
+			if (timeToNotify > 0)
+			{
+				int timeInSeconds = timerValue * 30 / 50;
+				int prevTimeInSeconds = previousTimerValue * 30 / 50;
+
+				log.debug("Seconds left until round start: {}", timeInSeconds);
+
+				if (prevTimeInSeconds > timeToNotify && timeInSeconds <= timeToNotify)
+				{
+					notifier.notify("Wintertodt round is about to start");
+				}
+			}
+
+			previousTimerValue = timerValue;
+		}
+	}
+
 	private void checkActionTimeout()
 	{
 		if (currentActivity == WintertodtActivity.IDLE)
@@ -206,21 +235,21 @@ public class WintertodtPlugin extends Plugin
 	}
 
 	@Subscribe
-	public void onSetMessage(SetMessage setMessage)
+	public void onChatMessage(ChatMessage chatMessage)
 	{
 		if (!isInWintertodt)
 		{
 			return;
 		}
 
-		ChatMessageType chatMessageType = setMessage.getType();
+		ChatMessageType chatMessageType = chatMessage.getType();
 
-		if (chatMessageType != ChatMessageType.SERVER && chatMessageType != ChatMessageType.FILTERED)
+		if (chatMessageType != ChatMessageType.GAMEMESSAGE && chatMessageType != ChatMessageType.SPAM)
 		{
 			return;
 		}
 
-		MessageNode messageNode = setMessage.getMessageNode();
+		MessageNode messageNode = chatMessage.getMessageNode();
 		final WintertodtInterruptType interruptType;
 
 		if (messageNode.getValue().startsWith("The cold of"))
@@ -377,6 +406,7 @@ public class WintertodtPlugin extends Plugin
 			case WOODCUTTING_DRAGON:
 			case WOODCUTTING_INFERNAL:
 			case WOODCUTTING_3A_AXE:
+			case WOODCUTTING_CRYSTAL:
 				setActivity(WintertodtActivity.WOODCUTTING);
 				break;
 

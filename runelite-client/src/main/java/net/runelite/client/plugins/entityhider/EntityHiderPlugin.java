@@ -25,16 +25,16 @@
  */
 package net.runelite.client.plugins.entityhider;
 
-import com.google.common.eventbus.Subscribe;
 import com.google.inject.Provides;
 import javax.inject.Inject;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.events.ConfigChanged;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 
@@ -95,6 +95,8 @@ public class EntityHiderPlugin extends Plugin
 		client.setNPCsHidden(config.hideNPCs());
 		client.setNPCsHidden2D(config.hideNPCs2D());
 
+		client.setPetsHidden(config.hidePets());
+
 		client.setAttackersHidden(config.hideAttackers());
 
 		client.setProjectilesHidden(config.hideProjectiles());
@@ -116,6 +118,8 @@ public class EntityHiderPlugin extends Plugin
 
 		client.setNPCsHidden(false);
 		client.setNPCsHidden2D(false);
+
+		client.setPetsHidden(false);
 
 		client.setAttackersHidden(false);
 

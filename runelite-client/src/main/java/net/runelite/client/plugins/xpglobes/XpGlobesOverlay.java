@@ -40,11 +40,15 @@ import java.time.Instant;
 import java.util.List;
 import javax.inject.Inject;
 import net.runelite.api.Client;
+import static net.runelite.api.MenuAction.RUNELITE_OVERLAY_CONFIG;
 import net.runelite.api.Point;
 import net.runelite.client.game.SkillIconManager;
+import net.runelite.client.plugins.xptracker.XpActionType;
 import net.runelite.client.plugins.xptracker.XpTrackerService;
 import net.runelite.client.ui.SkillColor;
 import net.runelite.client.ui.overlay.Overlay;
+import static net.runelite.client.ui.overlay.OverlayManager.OPTION_CONFIGURE;
+import net.runelite.client.ui.overlay.OverlayMenuEntry;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.OverlayUtil;
 import net.runelite.client.ui.overlay.components.LineComponent;
@@ -73,12 +77,14 @@ public class XpGlobesOverlay extends Overlay
 		XpTrackerService xpTrackerService,
 		SkillIconManager iconManager)
 	{
+		super(plugin);
 		this.iconManager = iconManager;
 		this.client = client;
 		this.plugin = plugin;
 		this.config = config;
 		this.xpTrackerService = xpTrackerService;
 		setPosition(OverlayPosition.TOP_CENTER);
+		getMenuEntries().add(new OverlayMenuEntry(RUNELITE_OVERLAY_CONFIG, OPTION_CONFIGURE, "XP Globes overlay"));
 	}
 
 	@Override
@@ -169,6 +175,11 @@ public class XpGlobesOverlay extends Overlay
 
 	private void drawProgressLabel(Graphics2D graphics, XpGlobe globe, int startXp, int goalXp, int x, int y)
 	{
+		if (goalXp <= globe.getCurrentXp())
+		{
+			return;
+		}
+
 		// Convert to int just to limit the decimal cases
 		String progress = (int) (getSkillProgress(startXp, globe.getCurrentXp(), goalXp)) + "%";
 
@@ -248,36 +259,47 @@ public class XpGlobesOverlay extends Overlay
 			.right(skillCurrentXp)
 			.build());
 
-		if (goalXp != -1)
+		if (goalXp > mouseOverSkill.getCurrentXp())
 		{
-			int actionsLeft = xpTrackerService.getActionsLeft(mouseOverSkill.getSkill());
-			if (actionsLeft != Integer.MAX_VALUE)
+			XpActionType xpActionType = xpTrackerService.getActionType(mouseOverSkill.getSkill());
+
+			if (config.showActionsLeft())
 			{
-				String actionsLeftString = decimalFormat.format(actionsLeft);
-				xpTooltip.getChildren().add(LineComponent.builder()
-					.left("Actions left:")
-					.leftColor(Color.ORANGE)
-					.right(actionsLeftString)
-					.build());
+				int actionsLeft = xpTrackerService.getActionsLeft(mouseOverSkill.getSkill());
+				if (actionsLeft != Integer.MAX_VALUE)
+				{
+					String actionsLeftString = decimalFormat.format(actionsLeft);
+					xpTooltip.getChildren().add(LineComponent.builder()
+							.left(xpActionType.getLabel() + " left:")
+							.leftColor(Color.ORANGE)
+							.right(actionsLeftString)
+							.build());
+				}
 			}
 
-			int xpLeft = goalXp - mouseOverSkill.getCurrentXp();
-			String skillXpToLvl = decimalFormat.format(xpLeft);
-			xpTooltip.getChildren().add(LineComponent.builder()
-				.left("XP left:")
-				.leftColor(Color.ORANGE)
-				.right(skillXpToLvl)
-				.build());
-
-			int xpHr = xpTrackerService.getXpHr(mouseOverSkill.getSkill());
-			if (xpHr != 0)
+			if (config.showXpLeft())
 			{
-				String xpHrString = decimalFormat.format(xpHr);
+				int xpLeft = goalXp - mouseOverSkill.getCurrentXp();
+				String skillXpToLvl = decimalFormat.format(xpLeft);
 				xpTooltip.getChildren().add(LineComponent.builder()
-					.left("XP per hour:")
-					.leftColor(Color.ORANGE)
-					.right(xpHrString)
-					.build());
+						.left("XP left:")
+						.leftColor(Color.ORANGE)
+						.right(skillXpToLvl)
+						.build());
+			}
+
+			if (config.showXpHour())
+			{
+				int xpHr = xpTrackerService.getXpHr(mouseOverSkill.getSkill());
+				if (xpHr != 0)
+				{
+					String xpHrString = decimalFormat.format(xpHr);
+					xpTooltip.getChildren().add(LineComponent.builder()
+							.left("XP per hour:")
+							.leftColor(Color.ORANGE)
+							.right(xpHrString)
+							.build());
+				}
 			}
 		}
 

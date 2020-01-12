@@ -26,15 +26,13 @@
  */
 package net.runelite.client.plugins.banktags;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Splitter;
-import com.google.common.eventbus.Subscribe;
 import com.google.inject.Provides;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseWheelEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
@@ -47,7 +45,7 @@ import net.runelite.api.MenuAction;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.VarClientInt;
 import net.runelite.api.VarClientStr;
-import net.runelite.api.events.ConfigChanged;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.api.events.DraggingWidgetChanged;
 import net.runelite.api.events.FocusChanged;
 import net.runelite.api.events.GameTick;
@@ -61,7 +59,9 @@ import net.runelite.api.widgets.WidgetID;
 import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.SpriteManager;
 import net.runelite.client.game.chatbox.ChatboxPanelManager;
 import net.runelite.client.input.KeyListener;
 import net.runelite.client.input.KeyManager;
@@ -72,8 +72,10 @@ import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.banktags.tabs.BankSearch;
 import net.runelite.client.plugins.banktags.tabs.TabInterface;
+import static net.runelite.client.plugins.banktags.tabs.TabInterface.FILTERED_CHARS;
 import net.runelite.client.plugins.banktags.tabs.TabSprites;
 import net.runelite.client.plugins.cluescrolls.ClueScrollPlugin;
+import net.runelite.client.util.Text;
 
 @PluginDescriptor(
 	name = "Bank Tags",
@@ -83,8 +85,6 @@ import net.runelite.client.plugins.cluescrolls.ClueScrollPlugin;
 @PluginDependency(ClueScrollPlugin.class)
 public class BankTagsPlugin extends Plugin implements MouseWheelListener, KeyListener
 {
-	public static final Splitter SPLITTER = Splitter.on(",").omitEmptyStrings().trimResults();
-	public static final Joiner JOINER = Joiner.on(",").skipNulls();
 	public static final String CONFIG_GROUP = "banktags";
 	public static final String TAG_SEARCH = "tag:";
 	private static final String EDIT_TAGS_MENU_OPTION = "Edit-tags";
@@ -128,6 +128,12 @@ public class BankTagsPlugin extends Plugin implements MouseWheelListener, KeyLis
 	@Inject
 	private KeyManager keyManager;
 
+	@Inject
+	private SpriteManager spriteManager;
+
+	@Inject
+	private ConfigManager configManager;
+
 	private boolean shiftPressed = false;
 
 	@Provides
@@ -139,10 +145,64 @@ public class BankTagsPlugin extends Plugin implements MouseWheelListener, KeyLis
 	@Override
 	public void startUp()
 	{
+		cleanConfig();
 		keyManager.registerKeyListener(this);
 		mouseManager.registerMouseWheelListener(this);
 		clientThread.invokeLater(tabInterface::init);
-		client.getSpriteOverrides().putAll(TabSprites.toMap(client));
+		spriteManager.addSpriteOverrides(TabSprites.values());
+	}
+
+	@Deprecated
+	private void cleanConfig()
+	{
+		removeInvalidTags("tagtabs");
+
+		List<String> tags = configManager.getConfigurationKeys(CONFIG_GROUP + ".item_");
+		tags.forEach(s ->
+		{
+			String[] split = s.split("\\.", 2);
+			removeInvalidTags(split[1]);
+		});
+
+		List<String> icons = configManager.getConfigurationKeys(CONFIG_GROUP + ".icon_");
+		icons.forEach(s ->
+		{
+			String[] split = s.split("\\.", 2);
+			String replaced = split[1].replaceAll("[<>/]", "");
+			if (!split[1].equals(replaced))
+			{
+				String value = configManager.getConfiguration(CONFIG_GROUP, split[1]);
+				configManager.unsetConfiguration(CONFIG_GROUP, split[1]);
+				if (replaced.length() > "icon_".length())
+				{
+					configManager.setConfiguration(CONFIG_GROUP, replaced, value);
+				}
+			}
+		});
+	}
+
+	@Deprecated
+	private void removeInvalidTags(final String key)
+	{
+		final String value = configManager.getConfiguration(CONFIG_GROUP, key);
+		if (value == null)
+		{
+			return;
+		}
+
+		String replaced = value.replaceAll("[<>/]", "");
+		if (!value.equals(replaced))
+		{
+			replaced = Text.toCSV(Text.fromCSV(replaced));
+			if (replaced.isEmpty())
+			{
+				configManager.unsetConfiguration(CONFIG_GROUP, key);
+			}
+			else
+			{
+				configManager.setConfiguration(CONFIG_GROUP, key, replaced);
+			}
+		}
 	}
 
 	@Override
@@ -151,11 +211,7 @@ public class BankTagsPlugin extends Plugin implements MouseWheelListener, KeyLis
 		keyManager.unregisterKeyListener(this);
 		mouseManager.unregisterMouseWheelListener(this);
 		clientThread.invokeLater(tabInterface::destroy);
-
-		for (TabSprites value : TabSprites.values())
-		{
-			client.getSpriteOverrides().remove(value.getSpriteId());
-		}
+		spriteManager.removeSpriteOverrides(TabSprites.values());
 
 		shiftPressed = false;
 	}
@@ -172,10 +228,6 @@ public class BankTagsPlugin extends Plugin implements MouseWheelListener, KeyLis
 
 		switch (eventName)
 		{
-			case "bankTagsActive":
-				// tell the script the bank tag plugin is active
-				intStack[intStackSize - 1] = 1;
-				break;
 			case "setSearchBankInputText":
 				stringStack[stringStackSize - 1] = SEARCH_BANK_INPUT_TEXT;
 				break;
@@ -187,7 +239,6 @@ public class BankTagsPlugin extends Plugin implements MouseWheelListener, KeyLis
 			}
 			case "bankSearchFilter":
 				int itemId = intStack[intStackSize - 1];
-				String itemName = stringStack[stringStackSize - 2];
 				String search = stringStack[stringStackSize - 1];
 
 				boolean tagSearch = search.startsWith(TAG_SEARCH);
@@ -201,9 +252,9 @@ public class BankTagsPlugin extends Plugin implements MouseWheelListener, KeyLis
 					// return true
 					intStack[intStackSize - 2] = 1;
 				}
-				else if (!tagSearch)
+				else if (tagSearch)
 				{
-					intStack[intStackSize - 2] = itemName.contains(search) ? 1 : 0;
+					intStack[intStackSize - 2] = 0;
 				}
 				break;
 			case "getSearchingTagTab":
@@ -283,15 +334,16 @@ public class BankTagsPlugin extends Plugin implements MouseWheelListener, KeyLis
 
 			boolean isSearchOpen = client.getVar(VarClientInt.INPUT_TYPE) == InputType.SEARCH.getType();
 			String searchText = client.getVar(VarClientStr.INPUT_TEXT);
-			String initialValue = JOINER.join(tags);
+			String initialValue = Text.toCSV(tags);
 
 			chatboxPanelManager.openTextInput(name + " tags:<br>(append " + VAR_TAG_SUFFIX + " for variation tag)")
+				.addCharValidator(FILTERED_CHARS)
 				.value(initialValue)
 				.onDone((newValue) ->
 					clientThread.invoke(() ->
 					{
 						// Split inputted tags to vartags (ending with *) and regular tags
-						final Collection<String> newTags = new ArrayList<>(SPLITTER.splitToList(newValue.toLowerCase()));
+						final Collection<String> newTags = new ArrayList<>(Text.fromCSV(newValue.toLowerCase()));
 						final Collection<String> newVarTags = new ArrayList<>(newTags).stream().filter(s -> s.endsWith(VAR_TAG_SUFFIX)).map(s ->
 						{
 							newTags.remove(s);
@@ -299,13 +351,13 @@ public class BankTagsPlugin extends Plugin implements MouseWheelListener, KeyLis
 						}).collect(Collectors.toList());
 
 						// And save them
-						tagManager.setTagString(itemId, JOINER.join(newTags), false);
-						tagManager.setTagString(itemId, JOINER.join(newVarTags), true);
+						tagManager.setTagString(itemId, Text.toCSV(newTags), false);
+						tagManager.setTagString(itemId, Text.toCSV(newVarTags), true);
 
 						// Check both previous and current tags in case the tag got removed in new tags or in case
 						// the tag got added in new tags
-						tabInterface.updateTabIfActive(SPLITTER.splitToList(initialValue.toLowerCase().replaceAll(Pattern.quote(VAR_TAG_SUFFIX), "")));
-						tabInterface.updateTabIfActive(SPLITTER.splitToList(newValue.toLowerCase().replaceAll(Pattern.quote(VAR_TAG_SUFFIX), "")));
+						tabInterface.updateTabIfActive(Text.fromCSV(initialValue.toLowerCase().replaceAll(Pattern.quote(VAR_TAG_SUFFIX), "")));
+						tabInterface.updateTabIfActive(Text.fromCSV(newValue.toLowerCase().replaceAll(Pattern.quote(VAR_TAG_SUFFIX), "")));
 					}))
 				.build();
 
